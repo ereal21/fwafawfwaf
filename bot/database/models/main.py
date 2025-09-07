@@ -110,11 +110,13 @@ class Categories(Database.BASE):
     __tablename__ = 'categories'
     name = Column(String(100), primary_key=True, unique=True, nullable=False)
     parent_name = Column(String(100), nullable=True)
+    allow_discounts = Column(Boolean, nullable=False, default=True)
     item = relationship("Goods", back_populates="category")
 
-    def __init__(self, name: str, parent_name: str | None = None):
+    def __init__(self, name: str, parent_name: str | None = None, allow_discounts: bool = True):
         self.name = name
         self.parent_name = parent_name
+        self.allow_discounts = allow_discounts
 
 
 class Goods(Database.BASE):
