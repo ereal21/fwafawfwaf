@@ -47,10 +47,10 @@ def add_values_to_item(item_name: str, value: str, is_infinity: bool) -> None:
     session.commit()
 
 
-def create_category(category_name: str, parent: str | None = None) -> None:
+def create_category(category_name: str, parent: str | None = None, allow_discounts: bool = True) -> None:
     session = Database().session
     session.add(
-        Categories(name=category_name, parent_name=parent))
+        Categories(name=category_name, parent_name=parent, allow_discounts=allow_discounts))
     session.commit()
 
 

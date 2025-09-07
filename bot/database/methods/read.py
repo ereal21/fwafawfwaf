@@ -239,6 +239,23 @@ def check_category(category_name: str) -> dict | None:
     return result.__dict__ if result else None
 
 
+def can_use_discount(item_name: str) -> bool:
+    """Return True if item's main category allows discounts."""
+    session = Database().session
+    category_name = session.query(Goods.category_name).filter(Goods.name == item_name).scalar()
+    if not category_name:
+        return True
+    while True:
+        category = session.query(Categories.parent_name, Categories.allow_discounts) \
+            .filter(Categories.name == category_name).first()
+        if not category:
+            return True
+        parent, allow = category
+        if parent is None:
+            return bool(allow)
+        category_name = parent
+
+
 def get_item_value(item_name: str) -> dict | None:
     result = Database().session.query(ItemValues).filter(ItemValues.item_name == item_name).first()
     return result.__dict__ if result else None

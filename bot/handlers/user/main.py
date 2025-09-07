@@ -25,6 +25,7 @@ from bot.database.methods import (
     select_unfinished_operations, get_user_referral, finish_operation, update_balance, create_operation,
     bought_items_list, check_value, get_subcategories, get_category_parent, get_user_language, update_user_language,
     get_unfinished_operation, get_user_unfinished_operation, get_promocode, add_values_to_item, get_user_tickets, update_lottery_tickets,
+    can_use_discount,
     has_user_achievement, get_achievement_users, grant_achievement, get_user_count,
     get_out_of_stock_categories, get_out_of_stock_subcategories, get_out_of_stock_items,
     has_stock_notification, add_stock_notification, check_user_by_username, check_user_referrals,
@@ -1028,16 +1029,29 @@ async def confirm_buy_callback_handler(call: CallbackQuery):
     TgConfig.STATE[f'{user_id}_pending_item'] = item_name
     TgConfig.STATE[f'{user_id}_price'] = price
     text = t(lang, 'confirm_purchase', item=display_name(item_name), price=price)
-    await bot.edit_message_text(
-        chat_id=call.message.chat.id,
-        message_id=call.message.message_id,
-        text=text,
-        reply_markup=confirm_purchase_menu(item_name, lang)
-    )
+    show_promo = can_use_discount(item_name)
+    if call.message.text:
+        await bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            text=text,
+            reply_markup=confirm_purchase_menu(item_name, lang, show_promo=show_promo)
+        )
+    else:
+        await bot.send_message(
+            user_id,
+            text,
+            reply_markup=confirm_purchase_menu(item_name, lang, show_promo=show_promo)
+        )
+        with contextlib.suppress(Exception):
+            await call.message.delete()
 
 async def apply_promo_callback_handler(call: CallbackQuery):
     item_name = call.data[len('applypromo_'):]
     bot, user_id = await get_bot_user_ids(call)
+    if not can_use_discount(item_name):
+        await call.answer('Promos not allowed for this category', show_alert=True)
+        return
     if TgConfig.STATE.get(f'{user_id}_promo_applied'):
         await call.answer('Promo code already applied', show_alert=True)
         return
