@@ -273,6 +273,7 @@ def can_get_referral_reward(item_name: str) -> bool:
         category_name = parent
 
 
+
 def get_item_value(item_name: str) -> dict | None:
     result = Database().session.query(ItemValues).filter(ItemValues.item_name == item_name).first()
     return result.__dict__ if result else None

@@ -26,6 +26,7 @@ from bot.database.methods import (
     bought_items_list, check_value, get_subcategories, get_category_parent, get_user_language, update_user_language,
     get_unfinished_operation, get_user_unfinished_operation, get_promocode, add_values_to_item, get_user_tickets, update_lottery_tickets,
     can_use_discount, can_get_referral_reward,
+    can_use_discount,
     has_user_achievement, get_achievement_users, grant_achievement, get_user_count,
     get_out_of_stock_categories, get_out_of_stock_subcategories, get_out_of_stock_items,
     has_stock_notification, add_stock_notification, check_user_by_username, check_user_referrals,
