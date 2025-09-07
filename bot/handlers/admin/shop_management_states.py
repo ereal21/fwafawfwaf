@@ -764,11 +764,30 @@ async def main_category_discount_decision(call: CallbackQuery):
     if TgConfig.STATE.get(user_id) != 'add_main_category_discount':
         return
     allow = call.data.endswith('_yes')
+    TgConfig.STATE[f'{user_id}_new_main_category_discount'] = allow
+    TgConfig.STATE[user_id] = 'add_main_category_referral'
+    message_id = TgConfig.STATE.get(f'{user_id}_message_id')
+    await bot.edit_message_text(chat_id=call.message.chat.id,
+                                message_id=message_id,
+                                text='Award referral rewards in this main category?',
+                                reply_markup=question_buttons('maincat_referral', 'categories_management'))
+
+
+async def main_category_referral_decision(call: CallbackQuery):
+    bot, user_id = await get_bot_user_ids(call)
+    if TgConfig.STATE.get(user_id) != 'add_main_category_referral':
+        return
+    allow_ref = call.data.endswith('_yes')
+    name = TgConfig.STATE.pop(f'{user_id}_new_main_category', None)
+    allow_discounts = TgConfig.STATE.pop(f'{user_id}_new_main_category_discount', True)
+
     name = TgConfig.STATE.pop(f'{user_id}_new_main_category', None)
     message_id = TgConfig.STATE.get(f'{user_id}_message_id')
     TgConfig.STATE[user_id] = None
     if not name:
         return
+    create_category(name, allow_discounts=allow_discounts, allow_referral_rewards=allow_ref)
+
     create_category(name, allow_discounts=allow)
     await bot.edit_message_text(chat_id=call.message.chat.id,
                                 message_id=message_id,
@@ -1623,6 +1642,9 @@ def register_shop_management(dp: Dispatcher) -> None:
 
     dp.register_callback_query_handler(main_category_discount_decision,
                                        lambda c: c.data.startswith('maincat_discount_') and TgConfig.STATE.get(c.from_user.id) == 'add_main_category_discount')
+
+    dp.register_callback_query_handler(main_category_referral_decision,
+                                       lambda c: c.data.startswith('maincat_referral_') and TgConfig.STATE.get(c.from_user.id) == 'add_main_category_referral')
 
     dp.register_callback_query_handler(add_preview_yes,
                                        lambda c: c.data == 'add_preview_yes' and TgConfig.STATE.get(c.from_user.id) == 'create_item_preview')

@@ -25,6 +25,7 @@ from bot.database.methods import (
     select_unfinished_operations, get_user_referral, finish_operation, update_balance, create_operation,
     bought_items_list, check_value, get_subcategories, get_category_parent, get_user_language, update_user_language,
     get_unfinished_operation, get_user_unfinished_operation, get_promocode, add_values_to_item, get_user_tickets, update_lottery_tickets,
+    can_use_discount, can_get_referral_reward,
     can_use_discount,
     has_user_achievement, get_achievement_users, grant_achievement, get_user_count,
     get_out_of_stock_categories, get_out_of_stock_subcategories, get_out_of_stock_items,
@@ -1121,7 +1122,7 @@ async def buy_item_callback_handler(call: CallbackQuery):
                 add_bought_item(value_data['item_name'], value_data['value'], item_price, user_id, formatted_time)
 
             referral_id = get_user_referral(user_id)
-            if referral_id and TgConfig.REFERRAL_PERCENT:
+            if referral_id and TgConfig.REFERRAL_PERCENT and can_get_referral_reward(value_data['item_name']):
                 reward = round(item_price * TgConfig.REFERRAL_PERCENT / 100, 2)
                 update_balance(referral_id, reward)
                 ref_lang = get_user_language(referral_id) or 'en'
@@ -1867,7 +1868,7 @@ async def checking_payment(call: CallbackQuery):
                     except Exception:
                         pass
 
-                if referral_id and TgConfig.REFERRAL_PERCENT:
+                if referral_id and TgConfig.REFERRAL_PERCENT and can_get_referral_reward(item_name):
                     reward = round(price * TgConfig.REFERRAL_PERCENT / 100, 2)
                     update_balance(referral_id, reward)
                     ref_lang = get_user_language(referral_id) or 'en'
