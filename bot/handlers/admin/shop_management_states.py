@@ -741,7 +741,6 @@ async def process_main_category_for_add(message: Message):
     bot, user_id = await get_bot_user_ids(message)
     msg = message.text
     message_id = TgConfig.STATE.get(f'{user_id}_message_id')
-    TgConfig.STATE[user_id] = None
     category = check_category(msg)
     await bot.delete_message(chat_id=message.chat.id,
                              message_id=message.message_id)
@@ -750,15 +749,48 @@ async def process_main_category_for_add(message: Message):
                                     message_id=message_id,
                                     text='❌ Main category not created (already exists)',
                                     reply_markup=back('categories_management'))
+        TgConfig.STATE[user_id] = None
         return
-    create_category(msg)
+    TgConfig.STATE[f'{user_id}_new_main_category'] = msg
+    TgConfig.STATE[user_id] = 'add_main_category_discount'
     await bot.edit_message_text(chat_id=message.chat.id,
+                                message_id=message_id,
+                                text='Let users use discounts in this main category?',
+                                reply_markup=question_buttons('maincat_discount', 'categories_management'))
+
+
+async def main_category_discount_decision(call: CallbackQuery):
+    bot, user_id = await get_bot_user_ids(call)
+    if TgConfig.STATE.get(user_id) != 'add_main_category_discount':
+        return
+    allow = call.data.endswith('_yes')
+    TgConfig.STATE[f'{user_id}_new_main_category_discount'] = allow
+    TgConfig.STATE[user_id] = 'add_main_category_referral'
+    message_id = TgConfig.STATE.get(f'{user_id}_message_id')
+    await bot.edit_message_text(chat_id=call.message.chat.id,
+                                message_id=message_id,
+                                text='Award referral rewards in this main category?',
+                                reply_markup=question_buttons('maincat_referral', 'categories_management'))
+
+
+async def main_category_referral_decision(call: CallbackQuery):
+    bot, user_id = await get_bot_user_ids(call)
+    if TgConfig.STATE.get(user_id) != 'add_main_category_referral':
+        return
+    allow_ref = call.data.endswith('_yes')
+    name = TgConfig.STATE.pop(f'{user_id}_new_main_category', None)
+    allow_discounts = TgConfig.STATE.pop(f'{user_id}_new_main_category_discount', True)
+    message_id = TgConfig.STATE.get(f'{user_id}_message_id')
+    TgConfig.STATE[user_id] = None
+    if not name:
+        return
+    create_category(name, allow_discounts=allow_discounts, allow_referral_rewards=allow_ref)
+    await bot.edit_message_text(chat_id=call.message.chat.id,
                                 message_id=message_id,
                                 text='✅ Main category created',
                                 reply_markup=back('categories_management'))
     admin_info = await bot.get_chat(user_id)
-    logger.info(f"User {user_id} ({admin_info.first_name}) "
-                f'created new main category "{msg}"')
+    logger.info(f"User {user_id} ({admin_info.first_name}) created new main category \"{name}\"")
 
 
 async def process_category_name(message: Message):
@@ -1001,11 +1033,30 @@ async def add_item_price(message: Message):
                                     reply_markup=back('item-management'))
         return
     TgConfig.STATE[f'{user_id}_price'] = message.text
-    TgConfig.STATE[user_id] = 'create_item_photo'
+    TgConfig.STATE[user_id] = 'create_item_preview'
     await bot.edit_message_text(chat_id=message.chat.id,
                                 message_id=message_id,
-                                text='Send preview photo for item:',
+                                text='Do you want to add a preview photo?',
+                                reply_markup=question_buttons('add_preview', 'item-management'))
+
+
+async def add_preview_yes(call: CallbackQuery):
+    bot, user_id = await get_bot_user_ids(call)
+    if TgConfig.STATE.get(user_id) != 'create_item_preview':
+        return
+    TgConfig.STATE[user_id] = 'create_item_photo'
+    await bot.edit_message_text('Send preview photo for item:',
+                                chat_id=call.message.chat.id,
+                                message_id=call.message.message_id,
                                 reply_markup=back('item-management'))
+
+
+async def add_preview_no(call: CallbackQuery):
+    bot, user_id = await get_bot_user_ids(call)
+    if TgConfig.STATE.get(user_id) != 'create_item_preview':
+        return
+    TgConfig.STATE[user_id] = None
+    await add_item_choose_category(call)
 
 
 async def add_item_preview_photo(message: Message):
@@ -1584,6 +1635,17 @@ def register_shop_management(dp: Dispatcher) -> None:
                                        lambda c: c.data.startswith('promo_expiry_') and TgConfig.STATE.get(c.from_user.id) == 'promo_create_expiry_type')
     dp.register_callback_query_handler(promo_manage_expiry_type_handler,
                                        lambda c: c.data.startswith('promo_expiry_') and TgConfig.STATE.get(c.from_user.id) == 'promo_manage_expiry_type')
+
+    dp.register_callback_query_handler(main_category_discount_decision,
+                                       lambda c: c.data.startswith('maincat_discount_') and TgConfig.STATE.get(c.from_user.id) == 'add_main_category_discount')
+
+    dp.register_callback_query_handler(main_category_referral_decision,
+                                       lambda c: c.data.startswith('maincat_referral_') and TgConfig.STATE.get(c.from_user.id) == 'add_main_category_referral')
+
+    dp.register_callback_query_handler(add_preview_yes,
+                                       lambda c: c.data == 'add_preview_yes' and TgConfig.STATE.get(c.from_user.id) == 'create_item_preview')
+    dp.register_callback_query_handler(add_preview_no,
+                                       lambda c: c.data == 'add_preview_no' and TgConfig.STATE.get(c.from_user.id) == 'create_item_preview')
 
     dp.register_message_handler(check_item_name_for_amount_upd,
                                 lambda c: TgConfig.STATE.get(c.from_user.id) == 'update_amount_of_item')
